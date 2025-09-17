@@ -1,0 +1,568 @@
+{
+  "name": "Onfly | Teste Integração | Por Kelvin Clenderson",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Filtro criado a base de testes.\n\nEm produção poderiamos filtrar os emails por remententes, ou seja, somente pessoas com email X seria verdadeiro para passar pelo fluxo.\n\nFoi usado o Email Trigger invés do Gmail Trigger pela escalabilidade com outras caixas de email IMAP.",
+        "height": 192,
+        "width": 384,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -768,
+        -160
+      ],
+      "typeVersion": 1,
+      "id": "a67c2b80-7ee5-4f99-b3dc-97ccf72f2ad0",
+      "name": "Sticky Note",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "postProcessAction": "nothing",
+        "format": "resolved",
+        "options": {
+          "trackLastMessageId": true
+        }
+      },
+      "type": "n8n-nodes-base.emailReadImap",
+      "typeVersion": 2.1,
+      "position": [
+        -368,
+        -112
+      ],
+      "id": "a6cbdce9-434d-44a1-abcc-302f7c9e9b26",
+      "name": "Recebe o E-mail",
+      "credentials": {
+        "imap": {
+          "id": "eCPj9OypYHyVg4pM",
+          "name": "kelvinclenderson95@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "8e41c090-4751-414d-af1e-39259bb2853a",
+              "leftValue": "={{ $('Recebe o E-mail').item.binary }}",
+              "rightValue": "",
+              "operator": {
+                "type": "object",
+                "operation": "exists",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "9cecb541-83c6-4202-9583-100dffecf345",
+              "leftValue": "",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "looseTypeValidation": true,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -144,
+        -112
+      ],
+      "id": "88f82af4-cfec-4160-89cd-0f255fd93668",
+      "name": "Verifica se Há Anexo"
+    },
+    {
+      "parameters": {
+        "content": "## Report de bugs.\nEste trigger foi desenvolvido somente para um controle do fluxo e manutenção.\n\nEle é acionado sempre que ocorre um erro neste fluxo, normalmente ficaria separado em um fluxo de trabalho separado, mas optei por deixar tudo no mesmo arquivo para facilitar a leitura.",
+        "height": 192,
+        "width": 384,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "position": [
+        -768,
+        160
+      ],
+      "typeVersion": 1,
+      "id": "ca5111a2-30e7-4f08-bec4-cd7841f19f4b",
+      "name": "Sticky Note1",
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.limit",
+      "typeVersion": 1,
+      "position": [
+        752,
+        -16
+      ],
+      "id": "95571b03-7acc-4f85-8be8-4c130a7dd7ba",
+      "name": "Limit1"
+    },
+    {
+      "parameters": {
+        "resource": "folder",
+        "name": "={{ $('Recebe o E-mail').item.json.subject }} - {{ $now.setZone('America/Sao_Paulo').toFormat('dd/MM/yyyy HH:MM') }}",
+        "driveId": {
+          "__rl": true,
+          "mode": "list",
+          "value": "My Drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "1jwhbQ6YcAixbWhmc_4l7mIhCw67KtstJ",
+          "mode": "list",
+          "cachedResultName": "Arquivos Processados",
+          "cachedResultUrl": "https://drive.google.com/drive/folders/1jwhbQ6YcAixbWhmc_4l7mIhCw67KtstJ"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        80,
+        -16
+      ],
+      "id": "7e11b37b-2cdd-4a9a-b187-7fd66416a054",
+      "name": "Criar Pasta no Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5XBLtDN7G1eZRctx",
+          "name": "kelvinclenderson95"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Pega o primeiro item que saiu do nó \"Recebe o E-mail\".\n// Usamos .first() para garantir que estamos pegando o e-mail principal.\nconst triggerItem = $('Recebe o E-mail').first();\n\n// Inicializa o array de saída.\nconst outputItems = [];\n\n// Pega o objeto que contém todos os anexos (ex: { attachment_0: ..., attachment_1: ... })\nconst anexos = triggerItem.binary;\n\n// Array para guardar os nomes dos arquivos encontrados.\nconst fileNames = [];\n\n// Verifica se o objeto de anexos existe e não está vazio.\nif (anexos && Object.keys(anexos).length > 0) {\n  // Extrai os nomes de todos os arquivos para a lista.\n  for (const key in anexos) {\n    fileNames.push(anexos[key].fileName);\n  }\n}\n\n// --- Lógica de Geração de Mensagem e Itens ---\n\n// CASO 1: Anexos foram encontrados.\nif (fileNames.length > 0) {\n  let mensagemEmail = \"\";\n\n  // Monta a mensagem com base na quantidade de arquivos.\n  if (fileNames.length === 1) {\n    mensagemEmail = `<p>O arquivo <strong>${fileNames[0]}</strong> foi processado com sucesso e já está disponível na pasta de controle.</p>`;\n  } else {\n    const listaDeArquivos = fileNames.map((name) => `<li>${name}</li>`).join(\"\");\n    mensagemEmail = `<p>Os seguintes arquivos foram processados com sucesso e já estão disponíveis na pasta de controle:</p><ul>${listaDeArquivos}</ul>`;\n  }\n\n  // CRIA UM ITEM DE SAÍDA PARA CADA ANEXO ENCONTRADO.\n  // Agora iteramos sobre as chaves do objeto 'anexos' que pegamos do trigger.\n  for (const key in anexos) {\n    // Acessamos o anexo específico diretamente da nossa variável 'anexos'.\n    const attachment = anexos[key];\n    \n    outputItems.push({\n      json: {\n        // Pegamos 'from' e 'subject' do item original do trigger.\n        from: triggerItem.json.from,\n        subject: triggerItem.json.subject,\n        anexo_encontrado: true,\n        fileName: attachment.fileName,\n        todos_os_arquivos: fileNames,\n        mensagem_confirmacao: mensagemEmail,\n      },\n      binary: {\n        arquivos_extraidos: attachment,\n      },\n    });\n  }\n} \n// CASO 2: Nenhum anexo foi encontrado.\nelse {\n  outputItems.push({\n    json: {\n      from: triggerItem.json.from,\n      subject: triggerItem.json.subject,\n      anexo_encontrado: false,\n    },\n  });\n}\n\n// Retorna a lista de itens.\nreturn outputItems;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        304,
+        -16
+      ],
+      "id": "9d5ef67e-50ba-440c-badb-bb09c9d9d2c1",
+      "name": "Extrair e Preparar Anexos",
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "inputDataFieldName": "=arquivos_extraidos",
+        "name": "=",
+        "driveId": {
+          "__rl": true,
+          "value": "My Drive",
+          "mode": "list",
+          "cachedResultName": "My Drive",
+          "cachedResultUrl": "https://drive.google.com/drive/my-drive"
+        },
+        "folderId": {
+          "__rl": true,
+          "value": "={{ $('Criar Pasta no Drive').item.json.id }}",
+          "mode": "id"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        528,
+        -16
+      ],
+      "id": "a4f0d3fe-d00a-4e19-93b1-383d80b71290",
+      "name": "Salvar Arquivo no Drive",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "5XBLtDN7G1eZRctx",
+          "name": "kelvinclenderson95"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://open.er-api.com/v6/latest/USD",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        976,
+        -16
+      ],
+      "id": "7f01d797-72f1-482a-a7d9-58e78955c9a7",
+      "name": "Consultar Cotação do Dólar"
+    },
+    {
+      "parameters": {
+        "fromEmail": "kelvinclenderson95@gmail.com",
+        "toEmail": "={{ $('Recebe o E-mail').item.json.from.value[0].address }}",
+        "subject": "[Confirmação] Seu arquivo foi recebido e processado com sucesso",
+        "html": "=<p>Olá {{ $('Recebe o E-mail').item.json.from.value[0].name }},</p>\n\n<p>Confirmamos o recebimento e o processamento automático do seu e-mail enviado à <strong>Equipe Financeira</strong>, com o assunto: <em>\"{{ $('Recebe o E-mail').item.json.subject }}\"</em>.</p>\n\n<p>{{ $('Extrair e Preparar Anexos').item.json.mensagem_confirmacao }}</p>\n\n<p>📂 Você pode acessar os arquivos desta operação no seguinte link do Drive:  \n<a href=\"https://drive.google.com/drive/folders/{{ $('Criar Pasta no Drive').item.json.id }}\" target=\"_blank\">Abrir pasta no Google Drive</a></p>\n\n<hr>\n\n<h3>📌 Detalhes da Operação:</h3>\n<ul>\n    <li><strong>Cotação do Dólar (USD → BRL):</strong> R$ {{ $('Consultar Cotação do Dólar').item.json.rates.BRL.toFixed(2) }}</li>\n    <li><strong>Data do Processamento:</strong> {{ $now.setZone('America/Sao_Paulo').toFormat('dd/MM/yyyy HH:mm') }}</li>\n</ul>\n\n<p><em>Nenhuma ação adicional é necessária neste momento.</em></p>\n\n<p>Atenciosamente,</p>\n<p><strong>Equipe Financeira | Onfly</strong></p>",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1200,
+        -16
+      ],
+      "id": "14b325bb-24a1-41a9-8ae3-46fa1a69b0cf",
+      "name": "Enviar E-mail de Sucesso",
+      "webhookId": "05a9e197-e06c-4ec1-80c3-9e92b9c9f477",
+      "credentials": {
+        "smtp": {
+          "id": "t71SkVPw1H4BLmrU",
+          "name": "Kelvinclenderson95@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "kelvinclenderson95@gmail.com",
+        "toEmail": "={{ $('Recebe o E-mail').item.json.from.value[0].address }}",
+        "subject": "[Ação necessária] Não identificamos anexo no seu e-mail",
+        "html": "=<p>Olá {{ $('Recebe o E-mail').item.json.from.value[0].name }},</p>\n\n<p>Recebemos seu e-mail enviado à <strong>Equipe Financeira</strong>, com o assunto: <em>\"{{ $('Recebe o E-mail').item.json.subject }}\"</em>.</p>\n\n<p><strong>Importante:</strong> Não identificamos nenhum arquivo em anexo na sua mensagem.</p>\n\n<p>Para que possamos dar continuidade ao processamento, solicitamos, por favor, que reenvie o e-mail contendo o(s) documento(s) necessário(s).</p>\n\n<hr>\n\n<h3>📌 Orientações:</h3>\n<ul>\n  <li>Verifique se o(s) arquivo(s) foi(ram) corretamente anexado(s) antes de reenviar.</li>\n  <li>Caso tenha dúvidas, entre em contato com a <strong>Equipe Financeira</strong>.</li>\n</ul>\n\n<p>Aguardamos o reenvio para prosseguirmos com a operação.</p>\n\n<p>Atenciosamente,</p>\n<p><strong>Equipe Financeira | Onfly</strong></p>\n",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        80,
+        -208
+      ],
+      "id": "75fc6ca2-973d-4539-ba6f-ef1586aac358",
+      "name": "Enviar E-mail de Aviso",
+      "webhookId": "05a9e197-e06c-4ec1-80c3-9e92b9c9f477",
+      "credentials": {
+        "smtp": {
+          "id": "t71SkVPw1H4BLmrU",
+          "name": "Kelvinclenderson95@gmail.com"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.errorTrigger",
+      "typeVersion": 1,
+      "position": [
+        -368,
+        208
+      ],
+      "id": "813b4380-99a1-47eb-b58d-8d490fbda51e",
+      "name": "Report de bugs"
+    },
+    {
+      "parameters": {
+        "fromEmail": "kelvinclenderson95@gmail.com",
+        "toEmail": "kelvinclenderson95@gmail.com",
+        "subject": "🚨 Erro Detectado no n8n!",
+        "html": "=<p>🚨 <strong>Erro Detectado no n8n!</strong></p>\n\n<ul>\n  <li>🔄 <strong>Workflow:</strong> {{ $('Report de bugs').item.json.workflow.name }}</li>\n  <li>🆔 <strong>Execução:</strong> #{{ $('Report de bugs').item.json.execution.id }}</li>\n  <li>⚠️ <strong>Node:</strong> {{ $('Report de bugs').item.json.execution.lastNodeExecuted }}</li>\n  <li>❌ <strong>Mensagem:</strong> {{ $('Report de bugs').item.json.execution.error.message.replaceAll('\\n',' ').replaceAll('\\\"','\\\\\\\"') }}</li>\n  <li>📝 <strong>Descrição:</strong> {{ $('Report de bugs').item.json.execution.error.description || 'Sem descrição' }}</li>\n</ul>\n\n<p>🔗 <a href=\"{{ $('Report de bugs').item.json.execution.url.replace('localhost:5678', 'kelvin-clenderson.app.n8n.cloud') }}\" target=\"_blank\">Abrir Execução</a></p>\n",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        -144,
+        208
+      ],
+      "id": "779a9e1d-6c96-406e-b4c0-878cf4e32d19",
+      "name": "Envia notificação de erro",
+      "webhookId": "9bebc67c-74dc-4501-a579-b022ad377151",
+      "credentials": {
+        "smtp": {
+          "id": "t71SkVPw1H4BLmrU",
+          "name": "Kelvinclenderson95@gmail.com"
+        }
+      }
+    }
+  ],
+  "pinData": {
+    "Recebe o E-mail": [
+      {
+        "json": {
+          "headers": {
+            "delivered-to": "Delivered-To: kelvinclenderson95@gmail.com",
+            "received": "Received: from mail-sor-f41.google.com (mail-sor-f41.google.com. [209.85.220.41])\r\n        by mx.google.com with SMTPS id d9443c01a7336-267fd72f699sor6685245ad.8.2025.09.16.18.54.53\r\n        for <kelvinclenderson95@gmail.com>\r\n        (Google Transport Security);\r\n        Tue, 16 Sep 2025 18:54:54 -0700 (PDT)",
+            "x-received": "X-Received: by 2002:a17:902:d48f:b0:24e:b713:adac with SMTP id\r\n d9443c01a7336-267d18b106bmr55667375ad.28.1758074092946; Tue, 16 Sep 2025\r\n 18:54:52 -0700 (PDT)",
+            "arc-seal": "ARC-Seal: i=1; a=rsa-sha256; t=1758074094; cv=none;\r\n        d=google.com; s=arc-20240605;\r\n        b=VsbOWsQV+0pW9SyLmBVMgq5FUhf8Rf7GG7lfIUcBPQrJMBJ5K7D+7p6N1ZcYhg1yb5\r\n         D9Rn1bws4rK7Be6gKdsOnBRY39Q+9mIau5/+4xLTGKZRA8DzA/Brc0cNQjNZOZP3KNuu\r\n         x5KgG3Kt56tOO0HMR7/85+wT/KBi0CLTUtaMfhEWmb+sUeYnHCjVst0BNrCGrFg8/vJg\r\n         dJxx6wq1v35IxfrllFWoW7w7LBivfmNxDfxsrMI6omFB4tjeWmJFSD3T+T1alEwjLo5N\r\n         o/E3K1qXFLEATovDM3TYrcCrt+hBqj78TK+xxTKjwdxQPNygWgN75YCjj2wTVcjfeqRF\r\n         awyw==",
+            "arc-message-signature": "ARC-Message-Signature: i=1; a=rsa-sha256; c=relaxed/relaxed; d=google.com; s=arc-20240605;\r\n        h=to:subject:message-id:date:from:mime-version:dkim-signature;\r\n        bh=xP8TSefJ+J/uzlOvnaEbkPoPHfdaqF5neC1jqQ+XepY=;\r\n        fh=dOEDCZdkEqwxGx6SaaPQxN8B2o8OQUNzaruIHbuTjFw=;\r\n        b=UOzznQ9Lun5p898e1XiqUOnrk8FB8j7kFVe/hA0hKkq+dCvrdh5/B+98snyMfrOilF\r\n         FACn3lpMLOqhZF+ZUXOtDUKetCksjECqSwl9NBFjzqab1X0QEFpAA/kZCQ82oqbj9igN\r\n         XwHzTZxS7U86eK5cKoutY7LrsmopN+rellmA7IBlWBt0/3r7T4VSlrER587aU2ucUZKg\r\n         dTLmhuVDlkxFCDdL/PDrKfe72X5rCGeVDNuoZC9z8+223Y2v18a/As8zsb2lS9ESEM20\r\n         0Fc2ZdAVC3JTgvwzmjCUICA5NUF7NdJreZzbPkobyYUs7luhhpMDv+9R/tgQZq6quOfJ\r\n         /Kyw==;\r\n        dara=google.com",
+            "arc-authentication-results": "ARC-Authentication-Results: i=1; mx.google.com;\r\n       dkim=pass header.i=@gmail.com header.s=20230601 header.b=B7kJmXea;\r\n       spf=pass (google.com: domain of doondjc@gmail.com designates 209.85.220.41 as permitted sender) smtp.mailfrom=doondjc@gmail.com;\r\n       dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com;\r\n       dara=pass header.i=@gmail.com",
+            "return-path": "Return-Path: <doondjc@gmail.com>",
+            "received-spf": "Received-SPF: pass (google.com: domain of doondjc@gmail.com designates 209.85.220.41 as permitted sender) client-ip=209.85.220.41;",
+            "authentication-results": "Authentication-Results: mx.google.com;\r\n       dkim=pass header.i=@gmail.com header.s=20230601 header.b=B7kJmXea;\r\n       spf=pass (google.com: domain of doondjc@gmail.com designates 209.85.220.41 as permitted sender) smtp.mailfrom=doondjc@gmail.com;\r\n       dmarc=pass (p=NONE sp=QUARANTINE dis=NONE) header.from=gmail.com;\r\n       dara=pass header.i=@gmail.com",
+            "dkim-signature": "DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;\r\n        d=gmail.com; s=20230601; t=1758074093; x=1758678893; dara=google.com;\r\n        h=to:subject:message-id:date:from:mime-version:from:to:cc:subject\r\n         :date:message-id:reply-to;\r\n        bh=xP8TSefJ+J/uzlOvnaEbkPoPHfdaqF5neC1jqQ+XepY=;\r\n        b=B7kJmXeakzzYHC1Yp2OrKrNAnnKH2MQg0v2c4UfvPfvTgPsPbJQ1My/KuvpfpG5bic\r\n         89bfbuxoy31sQQPt+DFOIa4kmfe3wvF7D5sXmeNAYKcCD2PCWYnCgx2/Mnb6ReFlmF6l\r\n         MIrbBIZeLTJj6ZhnBvFaCWCEbMFplqJfUsy3minp192UwtXa8NzP5j0aSKvsh3SYyJAb\r\n         8yLtYA1MNhRaF8xQd0MmfjuI/3dEADGXOXtYjdYQ6JqcnjNNNszow2YOeFxi4D+LaFHq\r\n         tAS9zkKfuQRntOBZ2rq2PX6kBpe9jB4datpw5arvGS9MG0DL9XBLcNUXvRbP6DBX860V\r\n         uaFQ==",
+            "x-google-dkim-signature": "X-Google-DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed;\r\n        d=1e100.net; s=20230601; t=1758074093; x=1758678893;\r\n        h=to:subject:message-id:date:from:mime-version:x-gm-message-state\r\n         :from:to:cc:subject:date:message-id:reply-to;\r\n        bh=xP8TSefJ+J/uzlOvnaEbkPoPHfdaqF5neC1jqQ+XepY=;\r\n        b=eBogtDhItWx5ot2IMRZfTsFcJpj254dLCGRoplMyHsy/pnSDP2/BZaNP71aQul1tYm\r\n         Ynn4u/zJyOtycufaNee9N+lNO5BYphpyVr/n4Nn6/A8TWm/sLoQLd+F8j29Xj3/RPwjC\r\n         hPlpgYOubStfh1RSHRnxm505MceftRdT1a1R7RcXm/RWwHv1JDQhfyGdPqddB+mtB5Sb\r\n         7ZZRGrQVyPX0vtWC9QEnHx6qQGk0y3rMlKGHQrPUBDmZfZqVlztEh6xvHOB5XADUtylk\r\n         K7plt39zuBQmR4g2tc/oIxfCNqysT4/Ck/Kkyqmr/udPREQoZLzn0IoGUNfIJnuqfefu\r\n         hrtA==",
+            "x-gm-message-state": "X-Gm-Message-State: AOJu0YzaV+I9aW30mv+H2gF7PrHBfkCwOtNgGhkPCXJ3jHKJMIHiAlC1\r\n\tb9h1zsWOB2dn47efcOlB72kFUQ2QiEhtFOdgf4vU3nWLyWH4bdPtRb22wc1vQRmdPMYob/QnUbJ\r\n\t6500DN/Kbjxqi/kHUM/RB2lX7xY1BO342/Q==",
+            "x-gm-gg": "X-Gm-Gg: ASbGncu0mXfyWWq1rqe0y6Ig/Kx6MdSBomLCGHs5lXnRUQmZ/6phAdtQ5GL+NQuaFDM\r\n\tfxql5M6W86a3i9c6Wv+lu+LzxRkNpTg5Bv0U6DgEcJiCXhWOtM0QwKucG0d6ck3Vgdai2BNkdEP\r\n\tDnXqMxYuXSNHhBPDVCs/MN5YAEETSoIw00WnAbXPDdLuNN3GMqxTUuyx4kdEKYST1Z7KmtaSGhR\r\n\tOs9lo1/32SebBqsxZGp4DROKrrWMLutaPemQDBNgA==",
+            "x-google-smtp-source": "X-Google-Smtp-Source: AGHT+IHOWgxUGvfLqNOYXATtRHHAohTnJq+zobw40md7Eyo9XOmsdwyWzL3HPgeNE0pa1RBTuEmXs4JYOg7BJjf4BJ0=",
+            "mime-version": "MIME-Version: 1.0",
+            "from": "From: Kelvin Clenderson Viana de Araujo <doondjc@gmail.com>",
+            "date": "Date: Tue, 16 Sep 2025 22:54:40 -0300",
+            "x-gm-features": "X-Gm-Features: AS18NWCMd3cSaSp7LwfWvqnPLDMmj48D-aLjQA3aeClzmxjH3qOCxLFJvaRvlqg",
+            "message-id": "Message-ID: <CABd3QGXhQJ10okv0Re6fP=5hGteo57VKRf2mUR5S81xydQAMTQ@mail.gmail.com>",
+            "subject": "Subject: =?UTF-8?Q?Analista_de_Integra=C3=A7=C3=B5es_=7C_Onlfy?=",
+            "to": "To: kelvinclenderson95@gmail.com",
+            "content-type": "Content-Type: multipart/mixed; boundary=\"000000000000ccaaa1063ef585ae\""
+          },
+          "html": "<div dir=\"ltr\">Primeiro envio de emails com anexo</div>\n",
+          "text": "Primeiro envio de emails com anexo\n",
+          "textAsHtml": "<p>Primeiro envio de emails com anexo</p>",
+          "subject": "Analista de Integrações | Onlfy",
+          "date": "2025-09-17T01:54:40.000Z",
+          "to": {
+            "value": [
+              {
+                "address": "kelvinclenderson95@gmail.com",
+                "name": ""
+              }
+            ],
+            "html": "<span class=\"mp_address_group\"><a href=\"mailto:kelvinclenderson95@gmail.com\" class=\"mp_address_email\">kelvinclenderson95@gmail.com</a></span>",
+            "text": "kelvinclenderson95@gmail.com"
+          },
+          "from": {
+            "value": [
+              {
+                "address": "doondjc@gmail.com",
+                "name": "Kelvin Clenderson Viana de Araujo"
+              }
+            ],
+            "html": "<span class=\"mp_address_group\"><span class=\"mp_address_name\">Kelvin Clenderson Viana de Araujo</span> &lt;<a href=\"mailto:doondjc@gmail.com\" class=\"mp_address_email\">doondjc@gmail.com</a>&gt;</span>",
+            "text": "\"Kelvin Clenderson Viana de Araujo\" <doondjc@gmail.com>"
+          },
+          "messageId": "<CABd3QGXhQJ10okv0Re6fP=5hGteo57VKRf2mUR5S81xydQAMTQ@mail.gmail.com>",
+          "attributes": {
+            "uid": 65575
+          }
+        },
+        "binary": {
+          "attachment_0": {
+            "mimeType": "text/csv",
+            "fileType": "text",
+            "fileExtension": "csv",
+            "data": "filesystem-v2",
+            "fileName": "binary-data.csv",
+            "id": "filesystem-v2:workflows/FEKjt7zc4iFf9Zqj/executions/temp/binary_data/90dc79fa-8ee1-4d2b-bfed-f61636b22c61",
+            "fileSize": "762 B"
+          },
+          "attachment_1": {
+            "mimeType": "text/csv",
+            "fileType": "text",
+            "fileExtension": "csv",
+            "data": "filesystem-v2",
+            "fileName": "cotacoes_moedas.csv",
+            "id": "filesystem-v2:workflows/FEKjt7zc4iFf9Zqj/executions/temp/binary_data/edc0b66c-6f5c-494a-b91a-61e1d33c283d",
+            "fileSize": "762 B"
+          }
+        }
+      }
+    ],
+    "Report de bugs": [
+      {
+        "json": {
+          "execution": {
+            "id": "144775",
+            "url": "http://localhost:5678/workflow/HIOFkP4JliAncOcy/executions/144775",
+            "error": {
+              "level": "warning",
+              "tags": {},
+              "description": "Failed query: SELECT * FROM $1:name.$2:name",
+              "timestamp": 1756206028966,
+              "context": {},
+              "functionality": "regular",
+              "name": "NodeOperationError",
+              "node": {
+                "parameters": {
+                  "resource": "database",
+                  "operation": "select",
+                  "schema": {
+                    "__rl": true,
+                    "value": "categorias_produtos",
+                    "mode": "list",
+                    "cachedResultName": "categorias_produtos"
+                  },
+                  "table": {
+                    "__rl": true,
+                    "value": "={{ $json.categoria_pai }}",
+                    "mode": "name"
+                  },
+                  "returnAll": true,
+                  "where": {},
+                  "combineConditions": "AND",
+                  "sort": {},
+                  "options": {}
+                },
+                "type": "n8n-nodes-base.postgres",
+                "typeVersion": 2.6,
+                "position": [
+                  896,
+                  144
+                ],
+                "id": "ec4d56a4-09f8-404a-82b8-8c7e61633783",
+                "name": "DB: Ler Produtos Salvos",
+                "credentials": {
+                  "postgres": {
+                    "id": "6dKrWirmHM5ICJWf",
+                    "name": "Bodega"
+                  }
+                }
+              },
+              "messages": [],
+              "message": "relation \"categorias_produtos.sorvetes_e_acais\" does not exist",
+              "stack": "NodeOperationError: relation \"categorias_produtos.sorvetes_e_acais\" does not exist\n    at parsePostgresError (/usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-nodes-base@file+packages+nodes-base_@aws-sdk+credential-providers@3.808.0_asn1.js@5_1af219c3f47f2a1223ec4ccec249a974/node_modules/n8n-nodes-base/nodes/Postgres/v2/helpers/utils.ts:124:9)\n    at /usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-nodes-base@file+packages+nodes-base_@aws-sdk+credential-providers@3.808.0_asn1.js@5_1af219c3f47f2a1223ec4ccec249a974/node_modules/n8n-nodes-base/nodes/Postgres/v2/helpers/utils.ts:279:19\n    at processTicksAndRejections (node:internal/process/task_queues:105:5)\n    at ExecuteContext.execute (/usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-nodes-base@file+packages+nodes-base_@aws-sdk+credential-providers@3.808.0_asn1.js@5_1af219c3f47f2a1223ec4ccec249a974/node_modules/n8n-nodes-base/nodes/Postgres/v2/actions/database/select.operation.ts:136:9)\n    at ExecuteContext.router (/usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-nodes-base@file+packages+nodes-base_@aws-sdk+credential-providers@3.808.0_asn1.js@5_1af219c3f47f2a1223ec4ccec249a974/node_modules/n8n-nodes-base/nodes/Postgres/v2/actions/router.ts:41:17)\n    at ExecuteContext.execute (/usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-nodes-base@file+packages+nodes-base_@aws-sdk+credential-providers@3.808.0_asn1.js@5_1af219c3f47f2a1223ec4ccec249a974/node_modules/n8n-nodes-base/nodes/Postgres/v2/PostgresV2.node.ts:26:10)\n    at WorkflowExecute.runNode (/usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-core@file+packages+core_@opentelemetry+api@1.9.0_@opentelemetry+sdk-trace-base@1.30_0c275070fd0434c00ffd62213b2bcae4/node_modules/n8n-core/src/execution-engine/workflow-execute.ts:1212:9)\n    at /usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-core@file+packages+core_@opentelemetry+api@1.9.0_@opentelemetry+sdk-trace-base@1.30_0c275070fd0434c00ffd62213b2bcae4/node_modules/n8n-core/src/execution-engine/workflow-execute.ts:1582:27\n    at /usr/local/lib/node_modules/n8n/node_modules/.pnpm/n8n-core@file+packages+core_@opentelemetry+api@1.9.0_@opentelemetry+sdk-trace-base@1.30_0c275070fd0434c00ffd62213b2bcae4/node_modules/n8n-core/src/execution-engine/workflow-execute.ts:2158:11"
+            },
+            "lastNodeExecuted": "DB: Ler Produtos Salvos",
+            "mode": "trigger"
+          },
+          "workflow": {
+            "id": "HIOFkP4JliAncOcy",
+            "name": "Bodega | Sincronização de Estoque | OPDV -> Postgres V4"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Recebe o E-mail": {
+      "main": [
+        [
+          {
+            "node": "Verifica se Há Anexo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verifica se Há Anexo": {
+      "main": [
+        [
+          {
+            "node": "Criar Pasta no Drive",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Enviar E-mail de Aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Limit1": {
+      "main": [
+        [
+          {
+            "node": "Consultar Cotação do Dólar",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Criar Pasta no Drive": {
+      "main": [
+        [
+          {
+            "node": "Extrair e Preparar Anexos",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extrair e Preparar Anexos": {
+      "main": [
+        [
+          {
+            "node": "Salvar Arquivo no Drive",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Salvar Arquivo no Drive": {
+      "main": [
+        [
+          {
+            "node": "Limit1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Consultar Cotação do Dólar": {
+      "main": [
+        [
+          {
+            "node": "Enviar E-mail de Sucesso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enviar E-mail de Aviso": {
+      "main": [
+        []
+      ]
+    },
+    "Report de bugs": {
+      "main": [
+        [
+          {
+            "node": "Envia notificação de erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "callerPolicy": "workflowsFromSameOwner",
+    "executionTimeout": -1,
+    "errorWorkflow": "FEKjt7zc4iFf9Zqj"
+  },
+  "versionId": "843ad84e-c0e6-4fc8-91a0-d4849a0da95f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "567c4e3288cbde9b801f101768198542c886ce7fc7512e7bb667cd1ffb099aba"
+  },
+  "id": "FEKjt7zc4iFf9Zqj",
+  "tags": [
+    {
+      "createdAt": "2025-09-16T14:03:18.499Z",
+      "updatedAt": "2025-09-16T14:03:18.499Z",
+      "id": "XR3nzM0uyi2Yb0Kf",
+      "name": "Analista de Integrações"
+    }
+  ]
+}
